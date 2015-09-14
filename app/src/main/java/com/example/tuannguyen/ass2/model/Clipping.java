@@ -1,15 +1,15 @@
 package com.example.tuannguyen.ass2.model;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Environment;
 
 import com.example.tuannguyen.ass2.R;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Date;
 
 /**
@@ -18,11 +18,11 @@ public class Clipping {
     private String mReferencedPath;
     private String mText;
     private Date mCreatedDate;
-    private int mId;
-    private Drawable mImage;
+    private long mId;
+    private Bitmap mImage;
 
-    //constructor
-    public Clipping(String referencedPath, String text, int id)
+    //construct
+    public Clipping(String referencedPath, String text, long id)
     {
         mReferencedPath = referencedPath;
         mText = text;
@@ -31,7 +31,7 @@ public class Clipping {
     }
 
 
-    public Clipping(String referencedPath, String text, int createdDate, int id)
+    public Clipping(String referencedPath, String text, int createdDate, long id)
     {
         mReferencedPath = referencedPath;
         mText = text;
@@ -40,7 +40,7 @@ public class Clipping {
     }
 
     //getters
-    public int getId() {
+    public long getId() {
         return mId;
     }
 
@@ -48,27 +48,27 @@ public class Clipping {
         return mReferencedPath;
     }
 
-    public Drawable getImage(Context context)
+    public Bitmap getImage(Context context)
     {
         if (mImage == null)
         {
-            mImage = getDrawable(context);
+            mImage = getImageBitmap(context);
         }
         return mImage;
     }
 
-    private Drawable getDrawable(Context context) {
-        Drawable drawable = null;
+    private Bitmap getImageBitmap(Context context) {
+        Bitmap bitmap = null;
         File imageFile = null;
         if (mReferencedPath != null)
             imageFile = new File(mReferencedPath);
         //if user did not provide any image or if the file does not exist
         if (imageFile == null || !imageFile.exists()) {
-            drawable = context.getResources().getDrawable(R.drawable.unavailable);
-            return drawable;
+            bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.unavailable);
+            return bitmap;
         } else {
-            drawable = Drawable.createFromPath(mReferencedPath);
-            return drawable;
+            bitmap = BitmapFactory.decodeFile(mReferencedPath);
+            return bitmap;
         }
     }
 
@@ -93,4 +93,20 @@ public class Clipping {
         return mCreatedDate;
     }
 
+    public Bitmap getThumbnail(Context context)
+    {
+        Bitmap bitmap = getImage(context);
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        float scaleWidth = 100.0f / width;
+        float scaleHeight = 100.0f / height;
+        // CREATE A MATRIX FOR THE MANIPULATION
+        Matrix matrix = new Matrix();
+        // RESIZE THE BIT MAP
+        matrix.postScale(scaleWidth, scaleHeight);
+
+        // "RECREATE" THE NEW BITMAP
+        Bitmap newBitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
+        return newBitmap ;
+    }
 }

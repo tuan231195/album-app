@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Environment;
+import android.util.Log;
 
 import com.example.tuannguyen.ass2.model.DatabaseContract.*;
 
@@ -23,7 +24,6 @@ import java.util.List;
 public class ScrapbookModel {
     private DatabaseHelper mDatabaseHelper;
     private Context mContext;
-    private static int numClippings;
 
 
     //constructor
@@ -33,7 +33,6 @@ public class ScrapbookModel {
         SQLiteDatabase db = mDatabaseHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM " + ClippingTable.TABLE_NAME, null);
         cursor.moveToFirst();
-        numClippings = cursor.getInt(0);
     }
 
 
@@ -63,7 +62,7 @@ public class ScrapbookModel {
 
 
     //add a clipping to a collection
-    public void addClippingToCollection(int clippingIdx, String collectionName) {
+    public void addClippingToCollection(long clippingIdx, String collectionName) {
         SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(ClippingTable.COLUMN_NAME_COLLECTION_NAME, collectionName);
@@ -71,8 +70,7 @@ public class ScrapbookModel {
     }
 
     //edit a clipping
-    public void editClipping(int id, String oldReferencedPath, String notes, InputStream is, boolean updateImage)
-    {
+    public void editClipping(long id, String oldReferencedPath, String notes, InputStream is, boolean updateImage) throws IOException {
         SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         Date currentDate = new Date();
@@ -83,11 +81,12 @@ public class ScrapbookModel {
         {
             try {
                 //copy the new image to the stored location
-                String copiedImageFileName  = id + " - " + date;
+                String copiedImageFileName  = id + " - " + date + ".jpg";
                 filePath = copyFile(is, copiedImageFileName);
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            is.close();
         }
 
         //if we want to update the image
@@ -98,6 +97,7 @@ public class ScrapbookModel {
                 deleteFile(oldReferencedPath);
             values.put(ClippingTable.COLUMN_NAME_IMAGE, filePath);
         }
+
         values.put(ClippingTable.COLUMN_NAME_NOTES, notes);
         db.update(ClippingTable.TABLE_NAME, values, ClippingTable._ID + "= ?", new String[]{"" + id});
     }
@@ -114,31 +114,31 @@ public class ScrapbookModel {
     }
 
     //create a clipping
-    public Clipping createClipping(String notes, InputStream is) {
-        SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        Date currentDate = new Date();
-        String date = currentDate.toString();
+    public Clipping createClipping(String notes, InputStream is) throws IOException {
+            SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            Date currentDate = new Date();
+            String date = currentDate.toString();
 
-        String filePath = null;
-        if (is != null)
-        {
-            try {
-                String copiedImageFileName  = numClippings + " - " + date;
-                filePath = copyFile(is, copiedImageFileName);
-            } catch (IOException e) {
-                e.printStackTrace();
+            String filePath = null;
+            if (is != null)
+            {
+                try {
+                    String copiedImageFileName  = date + ".jpg";
+                    filePath = copyFile(is, copiedImageFileName);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                is.close();
             }
-        }
 
-        Clipping clipping = new Clipping(filePath, notes, numClippings);
-        values.put(ClippingTable._ID, numClippings);
-        values.put(ClippingTable.COLUMN_NAME_DATE_CREATED, currentDate.getTime() / 1000);
-        values.put(ClippingTable.COLUMN_NAME_IMAGE, filePath);
-        values.put(ClippingTable.COLUMN_NAME_NOTES, notes);
-        db.insert(ClippingTable.TABLE_NAME, null, values);
-        numClippings++;
-        return clipping;
+            values.put(ClippingTable.COLUMN_NAME_DATE_CREATED, currentDate.getTime() / 1000);
+            values.put(ClippingTable.COLUMN_NAME_IMAGE, filePath);
+            values.put(ClippingTable.COLUMN_NAME_NOTES, notes);
+            long id = db.insert(ClippingTable.TABLE_NAME, null, values);
+            Clipping clipping = new Clipping(filePath, notes, id);
+
+            return clipping;
     }
 
 
@@ -160,7 +160,7 @@ public class ScrapbookModel {
     }
 
     //delete a clipping
-    public void deleteClipping(int id) {
+    public void deleteClipping(long id) {
         SQLiteDatabase db = mDatabaseHelper.getReadableDatabase();
         Cursor cursor = db.query(ClippingTable.TABLE_NAME, new String[]{ClippingTable.COLUMN_NAME_IMAGE}
                 , ClippingTable._ID + " = ?", new String[]{id + ""} , null, null, null);
@@ -234,7 +234,7 @@ public class ScrapbookModel {
     }
 
     //get a clipping
-    public Clipping getClipping(int id)
+    public Clipping getClipping(long id)
     {
         SQLiteDatabase db = mDatabaseHelper.getReadableDatabase();
         Cursor cursor = db.query(ClippingTable.TABLE_NAME, new String[]{ClippingTable.COLUMN_NAME_IMAGE, ClippingTable.COLUMN_NAME_NOTES}
@@ -257,16 +257,17 @@ public class ScrapbookModel {
         {
             return null;
         }
-
         try {
             //if sd card is available, create a copy of the image in the sd card
             if (isExternalStorageWritable()) {
                 File externalDir = Environment.getExternalStorageDirectory();
-                File savedDirectory = new File(externalDir, "/scrapbook-image/");
+                File savedDirectory = new File(externalDir, "scrapbook");
                 if (!savedDirectory.exists()) {
                     savedDirectory.mkdirs();
                 }
                 File savedFile = new File(savedDirectory, destFileName);
+                boolean d = savedFile.createNewFile();
+                Log.d("Result of", d + "");
                 out = new FileOutputStream(savedFile);
                 filePath = savedFile.getAbsolutePath();
 
